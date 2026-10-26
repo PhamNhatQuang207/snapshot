@@ -1,7 +1,7 @@
 # post-service settings for the shared chart. CI edits only image.tag.
 image:
   repository: 668302078083.dkr.ecr.ap-southeast-1.amazonaws.com/post-service
-  tag: "62f448784a33"
+  tag: "68487078d491"
 secretEnv:
   remoteKey: snapshot/post-service/db
   targetSecretName: post-service-db
