@@ -25,3 +25,19 @@ output "node_security_group_id" {
 output "rds_endpoint" {
   value = aws_db_instance.db.address
 }
+
+output "cloudfront_domain" {
+  value = aws_cloudfront_distribution.this.domain_name
+}
+
+output "cloudfront_distribution_id" {
+  value = aws_cloudfront_distribution.this.id
+}
+
+output "web_bucket" {
+  value = aws_s3_bucket.web.bucket
+}
+
+output "post_service_target_group_arn" {
+  value = aws_lb_target_group.post_service.arn
+}
