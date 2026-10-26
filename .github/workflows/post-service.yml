@@ -1,0 +1,79 @@
+# CI/CD for post-service.
+#   Pull request -> test: vet, unit tests, build the image, scan it for vulnerabilities.
+#   Push to main -> test, then release: push the image to ECR and bump the tag in Git;
+#                   Argo CD sees the commit and rolls it out (CI never touches the cluster).
+name: post-service
+
+on:
+  pull_request:
+    paths: ["services/post-service/**", ".github/workflows/post-service.yml"]
+  push:
+    branches: [main]
+    paths: ["services/post-service/**", ".github/workflows/post-service.yml"]
+
+permissions:
+  contents: read
+
+env:
+  SERVICE: post-service
+  AWS_REGION: ap-southeast-1
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: services/post-service
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: services/post-service/go.mod
+          cache-dependency-path: services/post-service/go.sum
+      - run: go vet ./...
+      - run: go test ./...
+      - id: meta
+        run: echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT" # image tag = first 12 chars of the commit
+      - name: Build image
+        run: docker build -t "$SERVICE:${{ steps.meta.outputs.tag }}" .
+      # Security gate: fail the pipeline on fixable HIGH/CRITICAL CVEs, so nothing vulnerable is released.
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.SERVICE }}:${{ steps.meta.outputs.tag }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-24.04
+    concurrency: post-service-release # one release at a time; never two tag bumps racing
+    permissions:
+      id-token: write # lets the job request a GitHub OIDC token, exchanged for short-lived AWS credentials
+      contents: write # lets the job push the tag-bump commit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+      - name: Build and push image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          tag="${GITHUB_SHA::12}"
+          docker build --platform linux/amd64 -t "$REGISTRY/$SERVICE:$tag" "services/$SERVICE"
+          docker push "$REGISTRY/$SERVICE:$tag"
+      - name: Bump image tag in Git (Argo CD deploys it)
+        run: |
+          tag="${GITHUB_SHA::12}"
+          yq -i ".image.tag = \"$tag\"" "deploy/values/$SERVICE.yaml"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "deploy($SERVICE): $tag"
+          git pull --rebase origin main
+          git push origin HEAD:main
