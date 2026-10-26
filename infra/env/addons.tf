@@ -166,5 +166,8 @@ resource "helm_release" "argocd_apps" {
     }
   })]
 
-  depends_on = [helm_release.argo_cd]
+  # On destroy the apps go first, while the controllers that own their finalizers still run:
+  # External Secrets must clear its ExternalSecret finalizer and the LB controller its
+  # TargetGroupBinding finalizer, or the Argo CD app (and this uninstall) hangs forever.
+  depends_on = [helm_release.argo_cd, helm_release.external_secrets, helm_release.lb_controller]
 }

@@ -6,7 +6,7 @@ The app is deliberately small. The interesting part is everything around it: how
 
 ## Status
 
-Milestone 1 (thin slice: one service end to end on AWS) is in progress.
+Milestone 1 (thin slice: one service end to end on AWS) is complete.
 
 | | Task |
 |---|---|
@@ -20,7 +20,7 @@ Milestone 1 (thin slice: one service end to end on AWS) is in progress.
 | ✅ | 8. Load balancer, CloudFront, web bucket |
 | ✅ | 9. Helm chart and Argo CD |
 | ✅ | 10. CI/CD pipelines (GitHub Actions) |
-| | 11. One-command `make up` / `make down` |
+| ✅ | 11. One-command `make up` / `make down`, seed data, teardown check |
 
 Later milestones: user, feed and notification services with gRPC between them, photo uploads to S3, SNS/SQS events, observability, Ansible. See the design doc.
 
@@ -33,6 +33,21 @@ Browser ──HTTPS──> CloudFront ─┬─ /*      → S3 web bucket (React
 git push → GitHub Actions (test, Trivy scan, image → ECR, bump tag in Git) → Argo CD syncs the cluster from Git
 ```
 
+Diagrams (open in a browser): [architecture](.archify/architecture-snapshot-20261026-101243/snapshot.html) · [delivery flow](.archify/workflow-snapshot-delivery-20261026-101243/snapshot-delivery.html)
+
+## Session routine
+
+Prerequisites: AWS CLI logged in, Terraform ≥ 1.10, kubectl, Helm, Docker, Go 1.27, Node 24 (nvm), jq.
+
+```bash
+make bootstrap   # once: state bucket, ECR, GitHub CI role (kept)
+make up          # start a session: ~25 min, prints https://dxxxx.cloudfront.net with 5 demo posts
+make down        # end a session: destroy everything, then verify nothing billable is left
+make verify-clean
+```
+
+The env costs about $0.30/hour while up (from credits). Always `make down` when you stop. See [note 08](docs/learn/08-session-routine.md) and [note 09](docs/learn/09-teardown.md).
+
 ## Repository layout
 
 ```
@@ -43,7 +58,7 @@ infra/env/               Terraform, created and destroyed each session: VPC, EKS
 deploy/charts/service/   Shared Helm chart for every Go service
 deploy/values/           Per-service values (CI bumps image.tag here; Argo CD deploys it)
 deploy/platform/         Cluster-wide objects (ClusterSecretStore), synced by Argo CD
-scripts/                 push-image.sh, deploy-frontend.sh
+scripts/                 up.sh, seed.sh, verify-clean.sh, push-image.sh, deploy-frontend.sh
 .github/workflows/       CI/CD: post-service, frontend, terraform
 infra/probes/eks/        Throwaway probe that proved EKS works on this account
 docs/learn/              Learning notes, one per topic
@@ -86,17 +101,7 @@ cd frontend && npm test
 Region `ap-southeast-1`. The account is on the AWS **Free plan** with promotional credits, so:
 
 - Only free-tier-eligible EC2 types launch. EKS nodes are `c7i-flex.large` / `m7i-flex.large` spot.
-- The `env` layer costs about $0.30/hour while running. Create it at the start of a session and **destroy it at the end**:
-
-```bash
-cd infra/env
-terraform init
-terraform apply      # ~20 min
-aws eks update-kubeconfig --name snapshot --region ap-southeast-1
-terraform output cloudfront_domain   # the app's URL (changes every apply)
-# ... work ...
-terraform destroy    # ~15 min
-```
+- The `env` layer costs about $0.30/hour while running: `make up` at the start of a session, **`make down` at the end**. `terraform -chdir=infra/env output cloudfront_domain` prints the app's URL (it changes every `make up`).
 
 `infra/bootstrap` stays up permanently and costs pennies. Never commit Terraform plan or state files: they contain secrets.
 
@@ -117,6 +122,8 @@ terraform destroy    # ~15 min
 - [05 · CloudFront, ALB and the web bucket](docs/learn/05-edge-cloudfront-alb.md)
 - [06 · Helm and Argo CD](docs/learn/06-helm-and-argocd.md)
 - [07 · CI/CD with GitHub Actions](docs/learn/07-ci-cd-github-actions.md)
+- [08 · Session routine](docs/learn/08-session-routine.md)
+- [09 · Teardown](docs/learn/09-teardown.md)
 
 Design: [`docs/superpowers/specs/2026-10-26-devops-learning-platform-design.md`](docs/superpowers/specs/2026-10-26-devops-learning-platform-design.md) ·
 Plan: [`docs/superpowers/plans/2026-10-26-milestone-1-thin-slice.md`](docs/superpowers/plans/2026-10-26-milestone-1-thin-slice.md)
