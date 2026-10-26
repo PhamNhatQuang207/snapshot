@@ -3,7 +3,18 @@
 # Bucket and distribution change on every `make up`, so they are read from SSM at run time.
 set -euo pipefail
 
-param() { aws ssm get-parameter --name "/snapshot/$1" --query Parameter.Value --output text 2>/dev/null || true; }
+# Prints the parameter's value, or nothing if it doesn't exist (env is down).
+# Any other error (expired credentials, missing permission...) fails the script instead of
+# being mistaken for "env is down".
+param() {
+  local out
+  if out="$(aws ssm get-parameter --name "/snapshot/$1" --query Parameter.Value --output text 2>&1)"; then
+    echo "$out"
+  elif ! grep -q ParameterNotFound <<<"$out"; then
+    echo "$out" >&2
+    return 1
+  fi
+}
 bucket="$(param web_bucket)"
 distribution="$(param cloudfront_distribution_id)"
 if [ -z "$bucket" ] || [ -z "$distribution" ]; then
