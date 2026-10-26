@@ -8,3 +8,9 @@ variable "name" {
   type        = string
   default     = "snapshot"
 }
+
+variable "github_repo_url" {
+  description = "Public Git repo Argo CD watches."
+  type        = string
+  default     = "https://github.com/PhamNhatQuang207/snapshot.git"
+}

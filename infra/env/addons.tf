@@ -94,3 +94,77 @@ resource "helm_release" "external_secrets" {
   # (which creates Services) before that webhook is ready fails, so install it second.
   depends_on = [module.eks, module.external_secrets_pod_identity, helm_release.lb_controller]
 }
+
+# --- Argo CD (GitOps) ---------------------------------------------------------
+# Argo CD runs in the cluster, watches the Git repo, and makes the cluster match it.
+# Terraform installs Argo CD and declares *which* apps to watch; what runs inside
+# those apps (image tags, replicas...) is changed only through Git.
+
+resource "helm_release" "argo_cd" {
+  name             = "argo-cd"
+  repository       = "https://argoproj.github.io/argo-helm"
+  chart            = "argo-cd"
+  version          = "10.11.3"
+  namespace        = "argocd"
+  create_namespace = true
+
+  # Trimmed for small nodes: no SSO (dex), no notifications, no ApplicationSets.
+  values = [yamlencode({
+    dex            = { enabled = false }
+    notifications  = { enabled = false }
+    applicationSet = { replicas = 0 }
+  })]
+
+  depends_on = [module.eks, helm_release.lb_controller]
+}
+
+locals {
+  argocd_app_defaults = {
+    namespace  = "argocd"
+    project    = "default"
+    finalizers = ["resources-finalizer.argocd.argoproj.io"] # deleting the app deletes what it deployed
+    syncPolicy = {
+      automated   = { prune = true, selfHeal = true } # remove what left Git; undo manual edits
+      syncOptions = ["CreateNamespace=true"]
+    }
+  }
+}
+
+resource "helm_release" "argocd_apps" {
+  name       = "argocd-apps"
+  repository = "https://argoproj.github.io/argo-helm"
+  chart      = "argocd-apps"
+  version    = "2.0.7"
+  namespace  = "argocd"
+
+  values = [yamlencode({
+    applications = {
+      # Cluster-wide platform objects (e.g. the ClusterSecretStore).
+      platform = merge(local.argocd_app_defaults, {
+        source      = { repoURL = var.github_repo_url, targetRevision = "main", path = "deploy/platform" }
+        destination = { server = "https://kubernetes.default.svc", namespace = "argocd" }
+      })
+
+      # post-service = shared chart + its values file + the target group ARN only Terraform knows.
+      post-service = merge(local.argocd_app_defaults, {
+        source = {
+          repoURL        = var.github_repo_url
+          targetRevision = "main"
+          path           = "deploy/charts/service"
+          helm = {
+            releaseName = "post-service"
+            valueFiles  = ["../../values/post-service.yaml"]
+            parameters  = [{ name = "targetGroupARN", value = aws_lb_target_group.post_service.arn }]
+          }
+        }
+        destination = { server = "https://kubernetes.default.svc", namespace = "snapshot" }
+        syncPolicy = merge(local.argocd_app_defaults.syncPolicy, {
+          # A new pod only counts as ready once the ALB sees it healthy, so rolling updates never drop traffic.
+          managedNamespaceMetadata = { labels = { "elbv2.k8s.aws/pod-readiness-gate-inject" = "enabled" } }
+        })
+      })
+    }
+  })]
+
+  depends_on = [helm_release.argo_cd]
+}
