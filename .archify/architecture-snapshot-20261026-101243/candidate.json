@@ -1,0 +1,461 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Snapshot on AWS: request and event flow",
+    "output": ".archify/architecture-snapshot-20261026-101243/snapshot.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Browser",
+      "sublabel": "React SPA",
+      "pos": [
+        40,
+        356
+      ],
+      "size": [
+        150,
+        72
+      ]
+    },
+    {
+      "id": "cognito",
+      "type": "security",
+      "label": "Cognito",
+      "sublabel": "user pool + hosted UI",
+      "pos": [
+        260,
+        170
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "JWT"
+    },
+    {
+      "id": "cloudfront",
+      "type": "cloud",
+      "label": "CloudFront",
+      "sublabel": "*.cloudfront.net HTTPS",
+      "pos": [
+        260,
+        356
+      ],
+      "size": [
+        150,
+        72
+      ]
+    },
+    {
+      "id": "s3",
+      "type": "cloud",
+      "label": "S3",
+      "sublabel": "web build + photos",
+      "pos": [
+        260,
+        560
+      ],
+      "size": [
+        150,
+        72
+      ],
+      "tag": "private, OAC"
+    },
+    {
+      "id": "thumb",
+      "type": "backend",
+      "label": "Thumbnail Lambda",
+      "sublabel": "Go, resizes uploads",
+      "pos": [
+        260,
+        760
+      ],
+      "size": [
+        150,
+        72
+      ]
+    },
+    {
+      "id": "alb",
+      "type": "cloud",
+      "label": "ALB",
+      "sublabel": "LB Controller ingress",
+      "pos": [
+        490,
+        356
+      ],
+      "size": [
+        150,
+        72
+      ],
+      "tag": "CloudFront only"
+    },
+    {
+      "id": "post",
+      "type": "backend",
+      "label": "post-service",
+      "sublabel": "Go pod on EKS",
+      "pos": [
+        740,
+        196
+      ],
+      "size": [
+        160,
+        72
+      ]
+    },
+    {
+      "id": "user",
+      "type": "backend",
+      "label": "user-service",
+      "sublabel": "Go pod on EKS",
+      "pos": [
+        740,
+        356
+      ],
+      "size": [
+        160,
+        72
+      ]
+    },
+    {
+      "id": "feed",
+      "type": "backend",
+      "label": "feed-service",
+      "sublabel": "Go pod on EKS",
+      "pos": [
+        740,
+        516
+      ],
+      "size": [
+        160,
+        72
+      ],
+      "tag": "HPA"
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "ElastiCache Redis",
+      "sublabel": "feed list per user",
+      "pos": [
+        740,
+        700
+      ],
+      "size": [
+        160,
+        72
+      ]
+    },
+    {
+      "id": "rds",
+      "type": "database",
+      "label": "RDS Postgres",
+      "sublabel": "posts + users schemas",
+      "pos": [
+        990,
+        186
+      ],
+      "size": [
+        160,
+        252
+      ]
+    },
+    {
+      "id": "sns",
+      "type": "messagebus",
+      "label": "SNS topic",
+      "sublabel": "post, like, comment, follow",
+      "pos": [
+        1220,
+        40
+      ],
+      "size": [
+        220,
+        72
+      ]
+    },
+    {
+      "id": "sqsfeed",
+      "type": "messagebus",
+      "label": "SQS feed queue",
+      "sublabel": "+ dead-letter queue",
+      "pos": [
+        1220,
+        516
+      ],
+      "size": [
+        160,
+        72
+      ]
+    },
+    {
+      "id": "sqsnotif",
+      "type": "messagebus",
+      "label": "SQS notify queue",
+      "sublabel": "+ dead-letter queue",
+      "pos": [
+        1480,
+        196
+      ],
+      "size": [
+        170,
+        72
+      ]
+    },
+    {
+      "id": "notif",
+      "type": "backend",
+      "label": "notification-service",
+      "sublabel": "Go pod on EKS",
+      "pos": [
+        1480,
+        356
+      ],
+      "size": [
+        170,
+        72
+      ]
+    },
+    {
+      "id": "dynamo",
+      "type": "database",
+      "label": "DynamoDB",
+      "sublabel": "notification inbox",
+      "pos": [
+        1480,
+        516
+      ],
+      "size": [
+        170,
+        72
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "AWS ap-southeast-1",
+      "wraps": [
+        "cognito",
+        "cloudfront",
+        "s3",
+        "thumb",
+        "alb",
+        "post",
+        "user",
+        "feed",
+        "redis",
+        "rds",
+        "sns",
+        "sqsfeed",
+        "sqsnotif",
+        "notif",
+        "dynamo"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "browser-cf",
+      "from": "browser",
+      "to": "cloudfront",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "browser-login",
+      "from": "browser",
+      "to": "cognito",
+      "label": "sign in",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "browser-upload",
+      "from": "browser",
+      "to": "s3",
+      "label": "upload via presigned URL",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "cf-alb",
+      "from": "cloudfront",
+      "to": "alb",
+      "label": "/api/*",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cf-s3",
+      "from": "cloudfront",
+      "to": "s3",
+      "label": "/* and /media/*",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "s3-thumb",
+      "from": "s3",
+      "to": "thumb",
+      "label": "ObjectCreated event",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "thumb-s3",
+      "from": "thumb",
+      "to": "s3",
+      "label": "write thumbnail",
+      "fromSide": "right",
+      "toSide": "right"
+    },
+    {
+      "id": "alb-post",
+      "from": "alb",
+      "to": "post",
+      "toSide": "left",
+      "fromSide": "right"
+    },
+    {
+      "id": "alb-user",
+      "from": "alb",
+      "to": "user",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "alb-feed",
+      "from": "alb",
+      "to": "feed",
+      "toSide": "left",
+      "fromSide": "bottom"
+    },
+    {
+      "id": "post-rds",
+      "from": "post",
+      "to": "rds",
+      "label": "SQL"
+    },
+    {
+      "id": "user-rds",
+      "from": "user",
+      "to": "rds",
+      "label": "SQL"
+    },
+    {
+      "id": "feed-user",
+      "from": "feed",
+      "to": "user",
+      "label": "get followers (HTTP)",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "feed-redis",
+      "from": "feed",
+      "to": "redis",
+      "label": "push / read feed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "post-sns",
+      "from": "post",
+      "to": "sns",
+      "label": "publish post.created",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "sns-sqsfeed",
+      "from": "sns",
+      "to": "sqsfeed",
+      "label": "fan-out",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "sns-sqsnotif",
+      "from": "sns",
+      "to": "sqsnotif",
+      "label": "fan-out",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "sqsfeed-feed",
+      "from": "sqsfeed",
+      "to": "feed",
+      "label": "poll messages",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "sqsnotif-notif",
+      "from": "sqsnotif",
+      "to": "notif",
+      "label": "poll",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "notif-dynamo",
+      "from": "notif",
+      "to": "dynamo",
+      "label": "write",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Edge and auth",
+      "items": [
+        "One free HTTPS URL: CloudFront serves the SPA and photos from S3, forwards /api/* to the ALB",
+        "ALB accepts traffic only from CloudFront's IP prefix list",
+        "Every Go service validates the Cognito JWT itself"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Event-driven core",
+      "items": [
+        "post-service and user-service publish events to one SNS topic",
+        "SNS fans out to one SQS queue per consumer, each with a DLQ",
+        "feed-service fans out on write into Redis; reads hydrate post details from post-service"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Platform (not drawn)",
+      "items": [
+        "EKS managed node group on spot instances, images in ECR",
+        "Argo CD syncs Helm charts from Git; GitHub Actions builds and pushes",
+        "Per-service IAM via Pod Identity; secrets from Secrets Manager via External Secrets"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Observability and cost",
+      "items": [
+        "Prometheus + Grafana, Loki logs, OpenTelemetry traces to Tempo; CloudWatch for managed services",
+        "All of it is Terraform; make down destroys everything except state bucket and ECR"
+      ]
+    }
+  ]
+}

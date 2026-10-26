@@ -1,0 +1,253 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Snapshot delivery: git push to production",
+    "output": ".archify/workflow-snapshot-delivery-20261026-101243/snapshot-delivery.html",
+    "quality_profile": "showcase",
+    "legend": {
+      "entries": {
+        "backend": {
+          "label": "Pipeline step"
+        },
+        "security": {
+          "label": "Security gate"
+        },
+        "cloud": {
+          "label": "AWS / cluster"
+        },
+        "external": {
+          "label": "Developer"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "fail",
+      "label": "Failure path",
+      "variant": "exception"
+    },
+    {
+      "id": "ci",
+      "label": "Developer + GitHub Actions"
+    },
+    {
+      "id": "aws",
+      "label": "AWS bootstrap layer"
+    },
+    {
+      "id": "cd",
+      "label": "GitOps on EKS"
+    }
+  ],
+  "phases": [
+    {
+      "id": "verify",
+      "label": "Verify",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "package",
+      "label": "Secure + publish",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "deploy",
+      "label": "Deploy",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": [
+    "push",
+    "test",
+    "scan",
+    "oidc",
+    "ecr",
+    "bump",
+    "argocd",
+    "rollout"
+  ],
+  "nodes": [
+    {
+      "id": "push",
+      "lane": "ci",
+      "col": 0,
+      "type": "external",
+      "label": "git push to main",
+      "sublabel": "change one service",
+      "width": 140
+    },
+    {
+      "id": "test",
+      "lane": "ci",
+      "col": 1,
+      "type": "backend",
+      "label": "Test + build image",
+      "sublabel": "go test, docker build :sha",
+      "tag": "path-filtered",
+      "width": 150
+    },
+    {
+      "id": "scan",
+      "lane": "ci",
+      "col": 2,
+      "type": "security",
+      "label": "Trivy scan",
+      "sublabel": "block HIGH/CRITICAL CVEs",
+      "width": 150
+    },
+    {
+      "id": "bump",
+      "lane": "ci",
+      "col": 4,
+      "type": "backend",
+      "label": "Bump image tag",
+      "sublabel": "commit new SHA to Helm values",
+      "width": 160
+    },
+    {
+      "id": "oidc",
+      "lane": "aws",
+      "col": 2,
+      "type": "security",
+      "label": "Assume IAM role",
+      "sublabel": "GitHub OIDC, no stored keys",
+      "width": 150
+    },
+    {
+      "id": "ecr",
+      "lane": "aws",
+      "col": 3,
+      "type": "cloud",
+      "label": "ECR",
+      "sublabel": "push image:sha",
+      "width": 140
+    },
+    {
+      "id": "failed",
+      "lane": "fail",
+      "col": 2,
+      "type": "security",
+      "label": "Pipeline fails",
+      "sublabel": "nothing deployed",
+      "width": 140
+    },
+    {
+      "id": "argocd",
+      "lane": "cd",
+      "col": 4,
+      "type": "backend",
+      "label": "Argo CD sync",
+      "sublabel": "sees Git differ from cluster",
+      "width": 160
+    },
+    {
+      "id": "rollout",
+      "lane": "cd",
+      "col": 5,
+      "type": "cloud",
+      "label": "Rolling update",
+      "sublabel": "new pods pull image from ECR",
+      "width": 160
+    }
+  ],
+  "edges": [
+    {
+      "id": "push-test",
+      "from": "push",
+      "to": "test",
+      "label": "trigger",
+      "variant": "emphasis"
+    },
+    {
+      "id": "test-scan",
+      "from": "test",
+      "to": "scan",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "scan-oidc",
+      "from": "scan",
+      "to": "oidc",
+      "label": "clean"
+    },
+    {
+      "id": "scan-failed",
+      "from": "scan",
+      "to": "failed",
+      "label": "CVE found",
+      "variant": "security",
+      "role": "error",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "oidc-ecr",
+      "from": "oidc",
+      "to": "ecr",
+      "label": "docker push"
+    },
+    {
+      "id": "ecr-bump",
+      "from": "ecr",
+      "to": "bump",
+      "label": "pushed"
+    },
+    {
+      "id": "bump-argocd",
+      "from": "bump",
+      "to": "argocd",
+      "label": "Git commit",
+      "variant": "emphasis"
+    },
+    {
+      "id": "argocd-rollout",
+      "from": "argocd",
+      "to": "rollout",
+      "label": "apply Helm chart",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Why GitOps",
+      "items": [
+        "Git is the single source of truth for what runs",
+        "CI never touches the cluster; Argo CD pulls changes in",
+        "Rollback = git revert, Argo CD syncs the old SHA back"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Security gates",
+      "items": [
+        "OIDC gives CI short-lived AWS credentials, no access keys in GitHub",
+        "Trivy blocks images with known critical vulnerabilities"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Infrastructure pipeline",
+      "items": [
+        "Terraform PRs run fmt, validate, tflint, checkov, then plan",
+        "Plan output is reviewed in the PR before anyone applies it"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "After rollout",
+      "items": [
+        "Readiness probes gate traffic to new pods; old pods drain",
+        "Grafana shows metrics, logs and traces for the new version"
+      ]
+    }
+  ]
+}
