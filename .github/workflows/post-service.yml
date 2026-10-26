@@ -14,6 +14,12 @@ on:
 permissions:
   contents: read
 
+# Pushes to main run one after another, in push order, so tag bumps never race.
+# (If a third push arrives while one runs and one waits, the waiting one is skipped: newest wins.)
+concurrency:
+  group: post-service-${{ github.event_name == 'push' && 'main' || github.ref }}
+  cancel-in-progress: false
+
 env:
   SERVICE: post-service
   AWS_REGION: ap-southeast-1
@@ -49,7 +55,6 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-24.04
-    concurrency: post-service-release # one release at a time; never two tag bumps racing
     permissions:
       id-token: write # lets the job request a GitHub OIDC token, exchanged for short-lived AWS credentials
       contents: write # lets the job push the tag-bump commit
@@ -66,14 +71,27 @@ jobs:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
         run: |
           tag="${GITHUB_SHA::12}"
-          docker build --platform linux/amd64 -t "$REGISTRY/$SERVICE:$tag" "services/$SERVICE"
-          docker push "$REGISTRY/$SERVICE:$tag"
+          # ECR tags are immutable: if this commit's image already exists (a re-run, or `make push`),
+          # reuse it instead of failing on a duplicate tag.
+          if aws ecr describe-images --repository-name "$SERVICE" --image-ids imageTag="$tag" >/dev/null 2>&1; then
+            echo "image $SERVICE:$tag already in ECR, reusing it"
+          else
+            docker build --platform linux/amd64 -t "$REGISTRY/$SERVICE:$tag" "services/$SERVICE"
+            docker push "$REGISTRY/$SERVICE:$tag"
+          fi
       - name: Bump image tag in Git (Argo CD deploys it)
         run: |
           tag="${GITHUB_SHA::12}"
+          # Start from the latest main, not from this run's commit: an earlier release may have
+          # bumped the same line meanwhile, and rebasing onto that would conflict.
+          git fetch origin main
+          git reset --hard origin/main
           yq -i ".image.tag = \"$tag\"" "deploy/values/$SERVICE.yaml"
+          if git diff --quiet; then
+            echo "tag already $tag, nothing to commit"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "deploy($SERVICE): $tag"
-          git pull --rebase origin main
           git push origin HEAD:main
