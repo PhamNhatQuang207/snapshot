@@ -41,7 +41,7 @@ If `/healthz` checked the database, a 30-second RDS blip would make Kubernetes r
 **The image.**
 - *Multi-stage build:* compile in `golang:1.27-alpine` (~300 MB), then copy only the binary into `distroless/static:nonroot` (~2 MB, no shell, no package manager).
 - *Non-root:* the process can't modify the container's system files even if compromised.
-- *arm64:* built for Graviton (AWS's ARM CPUs, ~20% cheaper), the same architecture as an Apple Silicon Mac.
+- *Multi-arch:* the build stage runs on the builder's own CPU and Go cross-compiles for `$TARGETARCH`: native arm64 on an Apple Silicon Mac, `linux/amd64` for the x86 EKS nodes. No slow emulation either way.
 
 **Tests.** Handler tests use an in-memory `fakeStore`, so they run in milliseconds. The Postgres test runs against the real database from Docker Compose:
 ```bash

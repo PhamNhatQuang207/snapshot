@@ -6,7 +6,7 @@
 
 **Architecture:** Two Terraform layers: `infra/bootstrap` (kept: state bucket, ECR, GitHub OIDC role) and `infra/env` (destroyed every session: VPC, EKS, RDS, ALB, CloudFront, cluster add-ons). Terraform owns the ALB and target group; the AWS Load Balancer Controller only binds pods to that target group (`TargetGroupBinding`), so CloudFront knows its origin at apply time and `terraform destroy` leaves no orphaned load balancers. Argo CD deploys a shared Helm chart; env-specific values (target group ARN) are injected by Terraform into the Argo CD Application, while the image tag lives in Git and is bumped by CI.
 
-**Tech Stack:** Go (stdlib `net/http`, `log/slog`, `pgx/v5`), React + Vite + TypeScript + Vitest, Docker (arm64), Terraform (+ `terraform-aws-modules/vpc`, `terraform-aws-modules/eks`), EKS on Graviton spot nodes, Helm, Argo CD, External Secrets Operator, AWS Load Balancer Controller, GitHub Actions (OIDC), Trivy, tflint, checkov.
+**Tech Stack:** Go (stdlib `net/http`, `log/slog`, `pgx/v5`), React + Vite + TypeScript + Vitest, Docker (multi-arch build, amd64 in AWS), Terraform (+ `terraform-aws-modules/vpc`, `terraform-aws-modules/eks`), EKS on x86 spot nodes, Helm, Argo CD, External Secrets Operator, AWS Load Balancer Controller, GitHub Actions (OIDC), Trivy, tflint, checkov.
 
 **Spec:** `docs/superpowers/specs/2026-10-26-devops-learning-platform-design.md`
 
@@ -20,10 +20,10 @@
 ## Global Constraints
 
 - Region `ap-southeast-1`. All resources tagged `project=snapshot` plus `layer=bootstrap` or `layer=env` (via provider `default_tags`).
-- AWS account is on the **Free account plan**, ending ~2027-02-26. Never create AWS Organizations, Control Tower, or anything else that auto-upgrades the plan to Paid.
+- AWS account is on the **Free account plan**, ending 2027-02-17. Never create AWS Organizations, Control Tower, or anything else that auto-upgrades the plan to Paid.
 - No long-lived AWS keys in the repo or in GitHub; CI uses GitHub OIDC. The owner's own CLI profile on their laptop is the only exception.
 - Terraform `>= 1.10` (S3 backend with `use_lockfile = true`, no DynamoDB lock table). AWS provider `>= 6.0`. Pin module/chart versions to the latest stable release at implementation time; check current docs before writing provider/module/chart arguments.
-- CPU architecture is **arm64 everywhere**: Graviton spot nodes (`t4g.medium`, `t4g.large`), `db.t4g.micro`, images built `linux/arm64` (GitHub `ubuntu-24.04-arm` runners, Apple Silicon locally).
+- CPU architecture in AWS is **x86_64** (owner's choice): spot nodes `t3.medium` + `t3a.medium` (fallback `m7i-flex.large` if the Free plan refuses t3.medium), `db.t3.micro`, images pushed as `linux/amd64`. The Dockerfile cross-compiles via `$TARGETARCH`, so local builds on Apple Silicon stay native arm64. CI runs on `ubuntu-24.04` (x86).
 - Repeatable teardown: every `env` resource must survive an `up → down → up` cycle with the same names: Secrets Manager `recovery_window_in_days = 0`; S3 `force_destroy = true` on env buckets; RDS `skip_final_snapshot = true`, `deletion_protection = false`; EKS control-plane logging off and module-managed KMS key off (`create_kms_key = false`, no `encryption_config`).
 - One NAT gateway (`single_nat_gateway = true`). Two AZs.
 - Every task that introduces a tool also writes or extends its learning note in `docs/learn/NN-<topic>.md` with exactly these headings: `## What it is`, `## Why big tech uses it`, `## How it's wired here`, `## Interview talking points`, `## How to tear down`. Notes are written for a fullstack engineer who knows the theory only.
@@ -215,7 +215,7 @@ git commit -m "feat(post-service): HTTP API with validation, health probes, grac
   func (s *PostgresStore) Migrate(ctx context.Context) error                           // runs embedded schema.sql
   func (s *PostgresStore) Close()
   ```
-  Container contract: listens on `8080`, needs env `DATABASE_URL`, runs as non-root, image `linux/arm64`.
+  Container contract: listens on `8080`, needs env `DATABASE_URL`, runs as non-root, multi-arch Dockerfile (`linux/amd64` for AWS, native arm64 locally).
 
 - [ ] **Step 1: Write `schema.sql`** (idempotent):
 
@@ -245,14 +245,14 @@ Expected: FAIL (undefined: `NewPostgresStore`).
 Run: same command as Step 4, then `go test ./... && go vet ./...`
 Expected: PASS, no vet findings.
 
-- [ ] **Step 7: Write the Dockerfile.** It is multi-stage: build with the official `golang` image (`CGO_ENABLED=0 GOOS=linux GOARCH=arm64`), run on `gcr.io/distroless/static-debian12:nonroot`, `USER nonroot`, `EXPOSE 8080`.
+- [ ] **Step 7: Write the Dockerfile.** It is multi-stage: build with the official `golang` image (`CGO_ENABLED=0 GOOS=linux`), `FROM --platform=$BUILDPLATFORM` + `GOARCH=$TARGETARCH` cross-compile, run on `gcr.io/distroless/static-debian12:nonroot`, `USER nonroot`, `EXPOSE 8080`.
 
 - [ ] **Step 8: Verify end to end locally**
 
 Run: `docker compose up -d --build && curl -s -XPOST localhost:8080/api/posts -d '{"caption":"hello"}' && curl -s localhost:8080/api/posts && docker compose stop post-service && docker compose logs post-service | tail -3`
 Expected: a 201 body with an `id`, a list containing `hello`, and logs showing a clean shutdown (no panic).
 
-- [ ] **Step 9: Write `docs/learn/01-go-microservice-and-containers.md`** covering the Go service layout, why liveness and readiness differ, graceful shutdown during rolling updates, distroless/non-root images, and arm64.
+- [ ] **Step 9: Write `docs/learn/01-go-microservice-and-containers.md`** covering the Go service layout, why liveness and readiness differ, graceful shutdown during rolling updates, distroless/non-root images, and multi-arch builds.
 
 - [ ] **Step 10: Commit**
 
@@ -370,7 +370,7 @@ git commit -m "feat(infra): bootstrap layer with state bucket, ECR, GitHub OIDC 
   - public endpoint, `authentication_mode = "API"`, `enable_cluster_creator_admin_permissions = true`
   - add-ons: `vpc-cni`, `coredns`, `kube-proxy`, `eks-pod-identity-agent`
   - control-plane logging disabled, `create_kms_key = false`, no `encryption_config`
-  - one managed node group: `capacity_type = "SPOT"`, `ami_type = "AL2023_ARM_64_STANDARD"`, instance types `["t4g.medium", "t4g.large"]`, min 2, desired 2, max 3, nodes in private subnets
+  - one managed node group: `capacity_type = "SPOT"`, `ami_type = "AL2023_x86_64_STANDARD"`, instance types `["t3.medium", "t3a.medium"]`, min 2, desired 2, max 3, nodes in private subnets
 
 - [ ] **Step 3: Validate**
 
@@ -380,7 +380,7 @@ Expected: valid; no tflint errors.
 - [ ] **Step 4: Apply and connect**
 
 Run: `terraform apply && aws eks update-kubeconfig --name snapshot --region ap-southeast-1 && kubectl get nodes -o wide`
-Expected: 2 nodes `Ready`, `ARCH` arm64 (check with `kubectl get nodes -L kubernetes.io/arch`).
+Expected: 2 nodes `Ready`, arch `amd64` (check with `kubectl get nodes -L kubernetes.io/arch,node.kubernetes.io/instance-type`).
 
 - [ ] **Step 5: Destroy to confirm the layer tears down cleanly** (the full repeatable cycle comes in Task 11).
 
@@ -393,7 +393,7 @@ Expected: `"clusters": []` and `[]`.
 
 ```bash
 git add infra/env docs/learn/03-*.md
-git commit -m "feat(infra): env layer with VPC and EKS on Graviton spot nodes"
+git commit -m "feat(infra): env layer with VPC and EKS on x86 spot nodes"
 ```
 
 ---
@@ -407,7 +407,7 @@ git commit -m "feat(infra): env layer with VPC and EKS on Graviton spot nodes"
 **Interfaces:**
 - Consumes: VPC, EKS outputs (Task 6).
 - Produces:
-  - RDS Postgres 17 `db.t4g.micro`, db `snapshot`, user `app`, 20 GB gp3, private subnets, SG allowing 5432 only from `node_security_group_id`, `skip_final_snapshot = true`, `deletion_protection = false`, `backup_retention_period = 0`.
+  - RDS Postgres 17 `db.t3.micro`, db `snapshot`, user `app`, 20 GB gp3, private subnets, SG allowing 5432 only from `node_security_group_id`, `skip_final_snapshot = true`, `deletion_protection = false`, `backup_retention_period = 0`.
   - Secrets Manager secret `snapshot/post-service/db`, JSON `{"DATABASE_URL":"postgres://app:<random>@<endpoint>:5432/snapshot?sslmode=require"}`, password from `random_password` (no special characters that break URLs), `recovery_window_in_days = 0`.
   - Helm releases in namespace `kube-system` / `external-secrets`: `aws-load-balancer-controller` (Pod Identity role with the controller's official IAM policy) and `external-secrets` (Pod Identity role allowing `secretsmanager:GetSecretValue`/`DescribeSecret` on `arn:aws:secretsmanager:ap-southeast-1:<acct>:secret:snapshot/*`).
   - `deploy/platform/cluster-secret-store.yaml`: `ClusterSecretStore` named `aws-secrets-manager`, provider `aws`, service `SecretsManager`, region `ap-southeast-1` (auth comes from the controller's Pod Identity). Applied by Argo CD in Task 9.
@@ -503,7 +503,7 @@ git commit -m "feat(infra): CloudFront edge with S3 web origin and ALB API origi
     - `platform`: path `deploy/platform`
     - `post-service`: path `deploy/charts/service`, value file `../../values/post-service.yaml`, Helm parameter `targetGroupARN = <tg arn>`, namespace `snapshot` (CreateNamespace)
   - Variable `github_repo_url` (the public HTTPS URL).
-  - `scripts/push-image.sh <service>`: ECR login, `docker build --platform linux/arm64`, tag with `git rev-parse --short=12 HEAD`, push, print the tag. Exposed as `make push SERVICE=post-service`.
+  - `scripts/push-image.sh <service>`: ECR login, `docker build --platform linux/amd64`, tag with `git rev-parse --short=12 HEAD`, push, print the tag. Exposed as `make push SERVICE=post-service`.
 
 - [ ] **Step 1: Write the chart, then lint and render it**
 
@@ -549,7 +549,7 @@ git commit -m "feat(deploy): shared Helm chart and Argo CD GitOps for post-servi
 **Interfaces:**
 - Consumes: `github_actions_role_arn` (Task 5, stored as the repo variable `AWS_ROLE_ARN`, not a secret), SSM params (Task 8), `deploy/values/post-service.yaml` (Task 9).
 - Produces:
-  - `post-service.yml`: triggers on `pull_request` and `push` to `main` with `paths: services/post-service/**`; `runs-on: ubuntu-24.04-arm`.
+  - `post-service.yml`: triggers on `pull_request` and `push` to `main` with `paths: services/post-service/**`; `runs-on: ubuntu-24.04`.
     - Job `test` (PRs and main): `go vet ./...`, `go test ./...`, build the image tagged with the 12-char SHA, Trivy scan of the local image (`severity: HIGH,CRITICAL`, `ignore-unfixed: true`, `exit-code: 1`).
     - Job `release` (main only, needs `test`, `permissions: id-token: write, contents: write`): rebuild the same tag → OIDC login → push to ECR → `yq -i '.image.tag = "<sha>"' deploy/values/post-service.yaml` → commit as `github-actions[bot]` with message `deploy(post-service): <sha>` → push. The `paths` filter means this commit does not retrigger the workflow.
   - `scripts/deploy-frontend.sh`: reads `/snapshot/web_bucket` and `/snapshot/cloudfront_distribution_id` from SSM. If a parameter is missing, it prints `env is down, skipping frontend deploy` and exits 0. Otherwise it runs `npm ci && npm test && npm run build`, `aws s3 sync dist s3://$BUCKET --delete`, and creates a CloudFront invalidation for `/*`.
@@ -618,4 +618,4 @@ git commit -m "feat: one-command up/down with seed data and teardown verificatio
 ## Self-review notes
 
 - Spec coverage for M1: §4 post-service (subset: captions; photos/likes/comments → M2/M3), §5 edge/EKS/RDS/Secrets Manager, §6 Terraform two layers, EKS/Helm/Argo CD, GitHub Actions + Trivy + OIDC, Terraform PR checks, teardown safety, §7 phases 0–5 and 7 for one service, §8 thin slice, seed, measured cost, §3 EKS probe and fallback gate. Deferred by design to later plans: Cognito, other services, SNS/SQS/Lambda, ElastiCache, DynamoDB, HPA, observability, Ansible, resilience demos, wrap-up.
-- Decision not in the spec, made here: Terraform-owned ALB + `TargetGroupBinding` instead of an Ingress-created ALB (stable CloudFront origin and clean destroy); SPA routing via a CloudFront Function instead of custom error responses; arm64 everywhere; CI Terraform checks run without AWS credentials.
+- Decision not in the spec, made here: Terraform-owned ALB + `TargetGroupBinding` instead of an Ingress-created ALB (stable CloudFront origin and clean destroy); SPA routing via a CloudFront Function instead of custom error responses; x86 nodes with a cross-compiling multi-arch Dockerfile; CI Terraform checks run without AWS credentials.
