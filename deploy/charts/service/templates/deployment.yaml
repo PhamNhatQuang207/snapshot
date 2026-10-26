@@ -40,6 +40,12 @@ spec:
           livenessProbe:
             httpGet: { path: {{ .Values.probes.liveness }}, port: http }
             periodSeconds: 10
+          lifecycle:
+            # Keep serving for 10s after the pod is marked for deletion, so the ALB finishes
+            # deregistering it before the app stops accepting connections (built-in sleep:
+            # the distroless image has no sleep binary). 10s + 20s app shutdown < 30s grace period.
+            preStop:
+              sleep: { seconds: 10 }
           readinessProbe:
             httpGet: { path: {{ .Values.probes.readiness }}, port: http }
             periodSeconds: 5
