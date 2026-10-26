@@ -21,3 +21,7 @@ output "cluster_endpoint" {
 output "node_security_group_id" {
   value = module.eks.node_security_group_id
 }
+
+output "rds_endpoint" {
+  value = aws_db_instance.db.address
+}
