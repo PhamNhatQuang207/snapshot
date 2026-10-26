@@ -23,7 +23,7 @@
 - AWS account is on the **Free account plan**, ending 2027-02-17. Never create AWS Organizations, Control Tower, or anything else that auto-upgrades the plan to Paid.
 - No long-lived AWS keys in the repo or in GitHub; CI uses GitHub OIDC. The owner's own CLI profile on their laptop is the only exception.
 - Terraform `>= 1.10` (S3 backend with `use_lockfile = true`, no DynamoDB lock table). AWS provider `>= 6.0`. Pin module/chart versions to the latest stable release at implementation time; check current docs before writing provider/module/chart arguments.
-- CPU architecture in AWS is **x86_64** (owner's choice): spot nodes `t3.medium` + `t3a.medium` (fallback `m7i-flex.large` if the Free plan refuses t3.medium), `db.t3.micro`, images pushed as `linux/amd64`. The Dockerfile cross-compiles via `$TARGETARCH`, so local builds on Apple Silicon stay native arm64. CI runs on `ubuntu-24.04` (x86).
+- CPU architecture in AWS is **x86_64** (owner's choice): spot nodes `c7i-flex.large` + `m7i-flex.large` (Free plan only launches free-tier-eligible types), `db.t3.micro`, images pushed as `linux/amd64`. The Dockerfile cross-compiles via `$TARGETARCH`, so local builds on Apple Silicon stay native arm64. CI runs on `ubuntu-24.04` (x86).
 - Repeatable teardown: every `env` resource must survive an `up → down → up` cycle with the same names: Secrets Manager `recovery_window_in_days = 0`; S3 `force_destroy = true` on env buckets; RDS `skip_final_snapshot = true`, `deletion_protection = false`; EKS control-plane logging off and module-managed KMS key off (`create_kms_key = false`, no `encryption_config`).
 - One NAT gateway (`single_nat_gateway = true`). Two AZs.
 - Every task that introduces a tool also writes or extends its learning note in `docs/learn/NN-<topic>.md` with exactly these headings: `## What it is`, `## Why big tech uses it`, `## How it's wired here`, `## Interview talking points`, `## How to tear down`. Notes are written for a fullstack engineer who knows the theory only.
@@ -370,7 +370,7 @@ git commit -m "feat(infra): bootstrap layer with state bucket, ECR, GitHub OIDC 
   - public endpoint, `authentication_mode = "API"`, `enable_cluster_creator_admin_permissions = true`
   - add-ons: `vpc-cni`, `coredns`, `kube-proxy`, `eks-pod-identity-agent`
   - control-plane logging disabled, `create_kms_key = false`, no `encryption_config`
-  - one managed node group: `capacity_type = "SPOT"`, `ami_type = "AL2023_x86_64_STANDARD"`, instance types `["t3.medium", "t3a.medium"]`, min 2, desired 2, max 3, nodes in private subnets
+  - one managed node group: `capacity_type = "SPOT"`, `ami_type = "AL2023_x86_64_STANDARD"`, instance types `["c7i-flex.large", "m7i-flex.large"]` (Free plan only launches free-tier-eligible types; t3.medium was refused), min 2, desired 2, max 3, nodes in private subnets
 
 - [ ] **Step 3: Validate**
 
