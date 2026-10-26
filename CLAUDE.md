@@ -27,6 +27,7 @@ A learning project. The owner is a fullstack engineer learning DevOps. Snapshot 
   - Confirm with the owner before anything that could cost real money rather than credits.
 - **Cost:** `infra/env` costs ~$0.26/h. Ask before `terraform apply`. Destroy it at the end of every session, then verify nothing billable remains (EKS, NAT gateways, EIPs, EC2, load balancers, EBS volumes).
 - Ask before any destructive or outward-facing action (destroy, push, publish).
+- **Never commit Terraform plan or state files**: they contain secrets (e.g. the DB password). Write `terraform plan -out=` files outside the repo, and read `git status` before every commit. The repo is public.
 
 ## Layout and commands
 
