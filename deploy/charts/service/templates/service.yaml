@@ -1,0 +1,14 @@
+# A stable in-cluster name and port in front of the pods (their IPs change on every restart).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

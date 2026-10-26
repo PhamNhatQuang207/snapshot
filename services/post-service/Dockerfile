@@ -13,6 +13,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags="-s 
 # Stage 2: ship only the binary on a minimal, shell-less, non-root base.
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/post-service /post-service
-USER nonroot
+# Numeric UID (distroless "nonroot") so Kubernetes runAsNonRoot can verify it is not root.
+USER 65532:65532
 EXPOSE 8080
 ENTRYPOINT ["/post-service"]

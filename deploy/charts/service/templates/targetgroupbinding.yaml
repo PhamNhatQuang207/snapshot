@@ -1,0 +1,14 @@
+{{- if .Values.targetGroupARN }}
+# Tells the AWS Load Balancer Controller: keep this Service's pod IPs registered in the
+# Terraform-owned ALB target group. The ALB itself is never created or deleted from Kubernetes.
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  serviceRef:
+    name: {{ .Release.Name }}
+    port: http
+  targetGroupARN: {{ .Values.targetGroupARN }}
+  targetType: ip
+{{- end }}

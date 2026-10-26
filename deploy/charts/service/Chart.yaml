@@ -1,0 +1,5 @@
+apiVersion: v2
+name: service
+description: Shared chart for every Snapshot Go service (one chart, one values file per service).
+type: application
+version: 0.1.0

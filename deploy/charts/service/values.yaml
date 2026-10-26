@@ -1,0 +1,23 @@
+# Defaults for every Go service. Each service overrides these in deploy/values/<service>.yaml.
+image:
+  repository: ""
+  tag: ""
+containerPort: 8080
+replicas: 2
+
+# ARN of the Terraform-owned ALB target group. Injected by the Argo CD Application (from Terraform);
+# empty means "not behind the ALB" and no TargetGroupBinding is rendered.
+targetGroupARN: ""
+
+# Secret copied from AWS Secrets Manager by External Secrets and exposed as environment variables.
+secretEnv:
+  remoteKey: ""        # e.g. snapshot/post-service/db
+  targetSecretName: "" # Kubernetes Secret name to create
+
+resources:
+  requests: { cpu: 50m, memory: 64Mi }
+  limits: { memory: 128Mi } # no CPU limit: avoids throttling; memory limit prevents a leak taking the node
+
+probes:
+  liveness: /healthz  # "am I alive?" fail -> restart the container
+  readiness: /readyz  # "can I serve?" fail -> stop sending traffic, don't restart
