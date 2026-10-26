@@ -1,0 +1,19 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+
+# Node / frontend
+node_modules/
+dist/
+
+# Local env
+.env
+
+# Archify: keep candidate.json and rendered HTML, drop generated evidence
+.archify/**/visual-check*/
+.archify/**/review-*/
+.archify/**/*.json
+!.archify/**/candidate.json

@@ -1,0 +1,208 @@
+data.aws_vpc.default: Reading...
+aws_iam_role.cluster: Refreshing state... [id=snapshot-probe-cluster]
+data.aws_vpc.default: Read complete after 1s [id=vpc-0ae4175c7b20a7253]
+data.aws_subnets.default: Reading...
+data.aws_subnets.default: Read complete after 0s [id=ap-southeast-1]
+aws_iam_role_policy_attachment.cluster: Refreshing state... [id=snapshot-probe-cluster/arn:aws:iam::aws:policy/AmazonEKSClusterPolicy]
+aws_eks_cluster.this: Refreshing state... [id=snapshot-probe]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  - destroy
+
+Terraform will perform the following actions:
+
+  # aws_eks_cluster.this will be destroyed
+  - resource "aws_eks_cluster" "this" {
+      - arn                           = "arn:aws:eks:ap-southeast-1:668302078083:cluster/snapshot-probe" -> null
+      - bootstrap_self_managed_addons = true -> null
+      - certificate_authority         = [
+          - {
+              - data = "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURNVENDQWhtZ0F3SUJBZ0lRZHNJZURlZ3dBakd1MDRiRWk0UzZDVEFOQmdrcWhraUc5dzBCQVFzRkFEQW4KTVJBd0RnWURWUVFLRXdkQlYxTWdSVXRUTVJNd0VRWURWUVFERXdwcmRXSmxjbTVsZEdWek1CNFhEVEkyTVRBeQpOakF6TkRRME5sb1hEVE14TVRBeU5UQXpORFEwTmxvd0p6RVFNQTRHQTFVRUNoTUhRVmRUSUVWTFV6RVRNQkVHCkExVUVBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUIKQVBWK0UwTFJxeFRqRmdOYkc4M3VobHB3L3N1V1hibjljNk12eDhTaVl0Z3QvSE8xd2VNc2MvRWtjWk04c3dMZwpwTjJiWUY1VmN0eUxhaHU3eENKS0U5Ym1tbkZacEpyWkw1S2VKd2Q0cGk2bEZqVnBqYkhHQTRvNEZFL0ZMWDlCCis1aW1tYmg4Yk93dGNHeGpCR1ZRQTYwV0RzSS81TVhHTjNoUUFXeGVOc2lxTHdxdnRzVjVsZWYvOE91Q2hGaEgKRkpxQ2tuaU1uT1BXNWc0b1VaaCtBcmx6Skx4ZjR1T1FqOU1IdjUxU2ZwdjRHZWNyUVpMTFlHQ3YvemZCUFpSLwoxZlFBUnRDdmRqa0QvYVp3Nm85OGhIMW1UL2dVaHYvaWRweFBaMWdOSktrQVBtOVBvMm5EbUljUHlRU0dVaXhyCjBJZk9MS2wxem4rL3FmMXdZU3prL3FFQ0F3RUFBYU5aTUZjd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWQKRXdFQi93UUZNQU1CQWY4d0hRWURWUjBPQkJZRUZHRGMxcTRVb0J6WkVzVEpTQmdUcEhqNkNvNkNNQlVHQTFVZApFUVFPTUF5Q0NtdDFZbVZ5Ym1WMFpYTXdEUVlKS29aSWh2Y05BUUVMQlFBRGdnRUJBRlBMT1RVK25yOHdmSG9HCi9ycC9NSWxOU1c0TCtOYVZmVDMyTSs0a3dpa0xQSEFCNGk2d0xPeERITW5jR1FXVFI4K3Yyd09CQ0VMRWg3WDkKc2RnT3p0MmVuWENlN1NzOXBGbDlLK242ZDhFbDZGMXh5TnF6aFh0czI4L0ZxVmFNeSs4dlNnN0hjR21lMUYzdgpPekdPQUltaGlSY1ZFc0xIZ1VxSEtQUTQxMUNUSWV2Nys1ejZ2VmhSQUxjVktNZ2EwOEQzdjg4L2lERENqMDBSCnkwVlBORy9NcXo2N21Wc1N4VFJPM3JNU3U2bmtoUDNYaU9vM2k1R01DM2FHWXUrTEcvWi9JRTFOVGJjL05udjEKMmFWK2tZeFBRWCtiWmNZQVhZSFh2bG5iSFcweVYxNXA4bG9OanRNMzRzbGZYNndVTnAxaFhZT1NQaWpzUVB2dQpSOTZ1amVJPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg=="
+            },
+        ] -> null
+      - created_at                    = "2026-10-26T03:44:38Z" -> null
+      - deletion_protection           = false -> null
+      - enabled_cluster_log_types     = [] -> null
+      - endpoint                      = "https://1C6DAF85EF79BD4D435DB1167FA73D68.gr7.ap-southeast-1.eks.amazonaws.com" -> null
+      - id                            = "snapshot-probe" -> null
+      - identity                      = [
+          - {
+              - oidc = [
+                  - {
+                      - issuer = "https://oidc.eks.ap-southeast-1.amazonaws.com/id/1C6DAF85EF79BD4D435DB1167FA73D68"
+                    },
+                ]
+            },
+        ] -> null
+      - name                          = "snapshot-probe" -> null
+      - platform_version              = "eks.5" -> null
+      - region                        = "ap-southeast-1" -> null
+      - role_arn                      = "arn:aws:iam::668302078083:role/snapshot-probe-cluster" -> null
+      - status                        = "ACTIVE" -> null
+      - tags                          = {} -> null
+      - tags_all                      = {
+          - "layer"   = "probe"
+          - "project" = "snapshot"
+        } -> null
+      - version                       = "1.37" -> null
+
+      - access_config {
+          - authentication_mode                         = "API" -> null
+          - bootstrap_cluster_creator_admin_permissions = false -> null
+        }
+
+      - compute_config {
+          - enabled       = false -> null
+          - node_pools    = [] -> null
+            # (1 unchanged attribute hidden)
+        }
+
+      - control_plane_scaling_config {
+          - tier = "standard" -> null
+        }
+
+      - kube_api_server_config {
+          - event_ttl = "60m" -> null
+
+          - service_node_port_range {
+              - max_port = 32767 -> null
+              - min_port = 30000 -> null
+            }
+        }
+
+      - kube_controller_manager_config {
+          - horizontal_pod_autoscaler_controller_config {
+              - horizontal_pod_autoscaler_sync_period = "15s" -> null
+            }
+          - pod_gc_controller_config {
+              - terminated_pod_gc_threshold = 12500 -> null
+            }
+        }
+
+      - kube_scheduler_config {
+          - node_resources_fit {
+              - scoring_strategy {
+                  - type = "LeastAllocated" -> null
+
+                  - resource {
+                      - name   = "cpu" -> null
+                      - weight = 1 -> null
+                    }
+                  - resource {
+                      - name   = "memory" -> null
+                      - weight = 1 -> null
+                    }
+                }
+            }
+        }
+
+      - kubernetes_network_config {
+          - ip_family         = "ipv4" -> null
+          - service_ipv4_cidr = "10.100.0.0/16" -> null
+            # (1 unchanged attribute hidden)
+
+          - elastic_load_balancing {
+              - enabled = false -> null
+            }
+        }
+
+      - storage_config {
+          - block_storage {
+              - enabled = false -> null
+            }
+        }
+
+      - upgrade_policy {
+          - support_type = "EXTENDED" -> null
+        }
+
+      - vpc_config {
+          - cluster_security_group_id = "sg-0b1c06638e1935330" -> null
+          - control_plane_egress_mode = "AWS_MANAGED" -> null
+          - endpoint_private_access   = false -> null
+          - endpoint_public_access    = true -> null
+          - public_access_cidrs       = [
+              - "0.0.0.0/0",
+            ] -> null
+          - security_group_ids        = [] -> null
+          - subnet_ids                = [
+              - "subnet-09fa232ad321ea854",
+              - "subnet-0e3d1e336fb7d107a",
+            ] -> null
+          - vpc_id                    = "vpc-0ae4175c7b20a7253" -> null
+        }
+    }
+
+  # aws_iam_role.cluster will be destroyed
+  - resource "aws_iam_role" "cluster" {
+      - arn                   = "arn:aws:iam::668302078083:role/snapshot-probe-cluster" -> null
+      - assume_role_policy    = jsonencode(
+            {
+              - Statement = [
+                  - {
+                      - Action    = [
+                          - "sts:AssumeRole",
+                          - "sts:TagSession",
+                        ]
+                      - Effect    = "Allow"
+                      - Principal = {
+                          - Service = "eks.amazonaws.com"
+                        }
+                    },
+                ]
+              - Version   = "2012-10-17"
+            }
+        ) -> null
+      - create_date           = "2026-10-26T03:44:32Z" -> null
+      - force_detach_policies = false -> null
+      - id                    = "snapshot-probe-cluster" -> null
+      - managed_policy_arns   = [
+          - "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
+        ] -> null
+      - max_session_duration  = 3600 -> null
+      - name                  = "snapshot-probe-cluster" -> null
+      - path                  = "/" -> null
+      - tags                  = {} -> null
+      - tags_all              = {
+          - "layer"   = "probe"
+          - "project" = "snapshot"
+        } -> null
+      - unique_id             = "AROAZXGPIOCB5UKRTTHDM" -> null
+        # (3 unchanged attributes hidden)
+    }
+
+  # aws_iam_role_policy_attachment.cluster will be destroyed
+  - resource "aws_iam_role_policy_attachment" "cluster" {
+      - id         = "snapshot-probe-cluster/arn:aws:iam::aws:policy/AmazonEKSClusterPolicy" -> null
+      - policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy" -> null
+      - role       = "snapshot-probe-cluster" -> null
+    }
+
+Plan: 0 to add, 0 to change, 3 to destroy.
+
+Changes to Outputs:
+  - cluster_status = "ACTIVE" -> null
+aws_eks_cluster.this: Destroying... [id=snapshot-probe]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 00m10s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 00m20s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 00m30s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 00m40s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 00m50s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 01m00s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 01m10s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 01m20s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 01m30s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 01m40s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 01m50s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 02m00s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 02m10s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 02m20s elapsed]
+aws_eks_cluster.this: Still destroying... [id=snapshot-probe, 02m30s elapsed]
+aws_eks_cluster.this: Destruction complete after 2m31s
+aws_iam_role_policy_attachment.cluster: Destroying... [id=snapshot-probe-cluster/arn:aws:iam::aws:policy/AmazonEKSClusterPolicy]
+aws_iam_role_policy_attachment.cluster: Destruction complete after 1s
+aws_iam_role.cluster: Destroying... [id=snapshot-probe-cluster]
+aws_iam_role.cluster: Destruction complete after 1s
+
+Destroy complete! Resources: 3 destroyed.

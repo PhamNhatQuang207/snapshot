@@ -88,12 +88,12 @@ Fail fast: confirm the Free plan can create an EKS cluster before building anyth
 **Interfaces:**
 - Produces: a go/no-go result recorded in `docs/learn/00-overview.md` under `## Probe results`.
 
-- [ ] **Step 1: Owner prerequisites (owner runs these).** Create an IAM user `snapshot-admin` with `AdministratorAccess` and MFA, create a CLI access key, and run `aws configure --profile snapshot` (region `ap-southeast-1`). Do not use root keys. Install: Terraform ≥ 1.10, AWS CLI v2, kubectl, Helm 3, Docker, Go (latest stable), Node ≥ 20, `gh`, `yq`.
+- [ ] **Step 1: Owner prerequisites.** Already done: the default AWS CLI profile is IAM user `Quang` (group `admin` with `AdministratorAccess`, region `ap-southeast-1`), not root. Still to do (owner, in the console): enable MFA on user `Quang`. Install the missing tools: `brew install hashicorp/tap/terraform helm go yq tflint` (kubectl, Docker on arm64, Node 20, `gh` already present).
 
 - [ ] **Step 2: Verify the toolchain**
 
-Run: `export AWS_PROFILE=snapshot && aws sts get-caller-identity && terraform version && kubectl version --client && helm version && go version && node --version`
-Expected: an account ID with the `snapshot-admin` ARN, and every tool prints a version (Terraform ≥ 1.10).
+Run: `aws sts get-caller-identity && terraform version && kubectl version --client && helm version && go version && node --version && yq --version && tflint --version`
+Expected: the `arn:aws:iam::<account>:user/Quang` ARN, and every tool prints a version (Terraform ≥ 1.10).
 
 - [ ] **Step 3: Write `.gitignore`** covering `.terraform/`, `*.tfstate`, `*.tfstate.*`, `*.tfplan`, `node_modules/`, `dist/`, `.env`, `.archify/**/visual-check*/`, `.archify/**/review-*/`, `.archify/**/*.json` except `candidate.json`.
 
