@@ -19,7 +19,7 @@ Milestone 1 (thin slice: one service end to end on AWS) is in progress.
 | ✅ | 7. Database (RDS), secrets, cluster add-ons |
 | ✅ | 8. Load balancer, CloudFront, web bucket |
 | ✅ | 9. Helm chart and Argo CD |
-| 🔄 | 10. CI/CD pipelines (GitHub Actions) |
+| ✅ | 10. CI/CD pipelines (GitHub Actions) |
 | | 11. One-command `make up` / `make down` |
 
 Later milestones: user, feed and notification services with gRPC between them, photo uploads to S3, SNS/SQS events, observability, Ansible. See the design doc.
@@ -116,6 +116,7 @@ terraform destroy    # ~15 min
 - [04 · RDS, secrets and cluster add-ons](docs/learn/04-rds-secrets-and-addons.md)
 - [05 · CloudFront, ALB and the web bucket](docs/learn/05-edge-cloudfront-alb.md)
 - [06 · Helm and Argo CD](docs/learn/06-helm-and-argocd.md)
+- [07 · CI/CD with GitHub Actions](docs/learn/07-ci-cd-github-actions.md)
 
 Design: [`docs/superpowers/specs/2026-10-26-devops-learning-platform-design.md`](docs/superpowers/specs/2026-10-26-devops-learning-platform-design.md) ·
 Plan: [`docs/superpowers/plans/2026-10-26-milestone-1-thin-slice.md`](docs/superpowers/plans/2026-10-26-milestone-1-thin-slice.md)
