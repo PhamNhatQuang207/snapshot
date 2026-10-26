@@ -54,7 +54,7 @@ func run(logger *slog.Logger) error {
 		Handler:           posts.NewHandler(store, logger),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	logger.Info("post-service listening", "port", port)
+	logger.Info("post-service listening", "port", port, "pid", os.Getpid())
 	if err := httpserver.Run(ctx, srv, 20*time.Second); err != nil {
 		return err
 	}
