@@ -17,7 +17,7 @@ The project is a **learning vehicle**, not a product. The app is deliberately sm
 - A working mini photo-sharing social network ("Snapshot") built as four Go microservices + a React frontend.
 - Every AWS resource created by Terraform; the whole environment can be created and destroyed with one command each.
 - Containers on Kubernetes (EKS), deployed via GitOps (Argo CD), built and shipped by GitHub Actions.
-- Event-driven communication between services (SNS → SQS) alongside synchronous HTTP calls.
+- Event-driven communication between services (SNS → SQS) alongside synchronous **gRPC** calls between services (REST/JSON stays the browser-facing API).
 - Observability: metrics, logs, and distributed tracing across all four services.
 - Ansible used for its real-world purpose: configuring a plain server.
 - A learning note per phase explaining the tool, why big tech uses it, how it's wired here, and interview talking points.
@@ -59,9 +59,9 @@ What a user can do:
 
 | Service | Owns | Data store | Talks to |
 |---|---|---|---|
-| **user-service** | Profiles, follow graph | RDS Postgres (`users` schema) | — (others call it) |
-| **post-service** | Posts, likes, comments, upload URLs | RDS Postgres (`posts` schema), S3 for photos | Publishes events to SNS |
-| **feed-service** | Each user's home feed | ElastiCache Redis (per-user feed list) | Consumes SQS; calls user-service over HTTP for follower lists |
+| **user-service** | Profiles, follow graph | RDS Postgres (`users` schema) | Serves `GetFollowers` over gRPC (others call it) |
+| **post-service** | Posts, likes, comments, upload URLs | RDS Postgres (`posts` schema), S3 for photos | Publishes events to SNS; serves `GetPosts` over gRPC |
+| **feed-service** | Each user's home feed | ElastiCache Redis (per-user feed list) | Consumes SQS; calls user-service and post-service over gRPC |
 | **notification-service** | Notification inbox | DynamoDB | Consumes SQS |
 | **thumbnail Lambda** | Resized images | S3 | Triggered by S3 upload event |
 
@@ -69,6 +69,14 @@ What a user can do:
 - **Photo upload:** frontend asks post-service for a presigned S3 URL, uploads directly to S3; S3 event triggers the Go Lambda which writes a thumbnail.
 - **Events:** post-service (and user-service for follows) publish to an SNS topic (`post.created`, `post.liked`, `comment.created`, `user.followed`). SNS fans out to two SQS queues: one for feed-service, one for notification-service. Each queue has a dead-letter queue.
 - **Feed strategy:** fan-out-on-write. On `post.created`, feed-service fetches the author's followers from user-service and pushes the post ID onto each follower's Redis list (capped length). Reads hydrate post details from post-service.
+- **Service-to-service calls use gRPC** *(owner's choice, added after approval; scheduled for Milestone 2, when a second service exists)*:
+  - Contracts live in `proto/` as `.proto` files; **buf** lints them, generates Go code, and runs a breaking-change check in CI.
+  - Each service listens on two ports: **8080** REST/JSON (public, behind the ALB) and **9090** gRPC (internal ClusterIP only, never on the ALB or CloudFront).
+  - Calls: feed-service → user-service `GetFollowers`; feed-service → post-service `GetPosts` (batch hydrate).
+  - Every call sets a deadline; errors use gRPC status codes. Kubernetes liveness/readiness use the native `grpc` probe with the standard gRPC health service.
+  - Rule of thumb taught in the learning note: **gRPC when the caller needs an answer now, SNS/SQS events when it is only announcing something.**
+  - Kubernetes gotcha to demonstrate and fix: a plain ClusterIP Service balances per *connection*, and gRPC keeps one long-lived HTTP/2 connection, so all calls stick to one pod. Fix with a headless Service + client-side `round_robin` (a service mesh is the production alternative; mentioned, not built).
+  - Out of scope: gRPC from the browser (gRPC-Web), gRPC through the ALB.
 - **Auth:** Amazon Cognito user pool with the hosted UI; callback URL is the CloudFront domain. Each Go service validates the Cognito JWT itself.
 
 ## 5. AWS architecture
@@ -102,6 +110,7 @@ Note: CloudFront → ALB is plain HTTP because there's no domain to issue a cert
 - **Kubernetes (EKS)** with Helm charts per service (a shared chart or one per service: builder's call). Horizontal Pod Autoscaler on at least the hot read path (feed-service).
 - **Argo CD** installed during `env` creation; watches the repo and syncs all apps (app-of-apps pattern). GitOps: the repo is the source of truth for what runs.
 - **GitHub Actions**:
+  - Proto pipeline (path-filtered on `proto/`): `buf lint`, `buf breaking` against `main`, and a check that generated code is up to date.
   - Per-service pipeline (path-filtered): lint, test, build image, Trivy vulnerability scan, push to ECR tagged with git SHA, then commit the new image tag to the deploy manifests → Argo CD rolls it out.
   - Terraform pipeline on PRs: `fmt`, `validate`, lint/security scan (e.g. tflint/checkov), `plan`.
   - AWS access via GitHub OIDC, no stored keys.
@@ -135,6 +144,7 @@ Phase order may be adjusted by the builder if dependencies demand it, as long as
 - **Data is throwaway** *(my call)*: every `make down` wipes app data, Cognito users, and the CloudFront URL changes on each `make up`. A seed script runs at the end of `make up` to create demo users, follows, posts and photos so the app is demo-ready every time. Bring-up takes ~25–40 minutes, so interviews are served by recorded evidence (diagrams, screenshots, Grafana captures, optional screen recording), not live bring-up.
 - **Order: thin slice first** *(my call, overrides strict §7 order)*: after Phase 0, get **one** service (post-service) all the way through Terraform → EKS → Helm/Argo CD → GitHub Actions → CloudFront early, so the full `git push` → production story works as soon as possible. Then add the remaining services, events, observability, Ansible and demos. If time runs short, cut in this order: resilience demos, Ansible, comments.
 - **Timeline** *(my call; owner didn't give weekly hours)*: sized to finish in ~10–12 weeks at roughly 6–8 hours/week, leaving a month of buffer before the Free plan ends. The thin slice should be working by about week 4.
+- **gRPC timing** *(owner chose option A)*: not part of Milestone 1, which has only post-service. gRPC arrives in Milestone 2 together with user-service and feed-service, so the first gRPC calls are real calls between real services.
 - **Cost honesty** *(my call)*: the observability stack likely needs larger nodes than the §3 estimate; the builder measures the real hourly cost after the first full bring-up and records it in the learning notes. Cheaper swaps (NAT instance, in-cluster Redis, slimmer observability) are documented as fallbacks, not built by default.
 
 ## 9. Diagrams

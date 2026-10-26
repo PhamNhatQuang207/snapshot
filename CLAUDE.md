@@ -51,6 +51,7 @@ docker-compose.yml       local Postgres (host port 5433) + post-service (8080)
 
 - TDD: write the failing test first, watch it fail, then implement.
 - Go: small `internal/` packages, interfaces at the consumer, `/healthz` (liveness) vs `/readyz` (readiness), graceful shutdown on SIGTERM.
+- APIs: REST/JSON for the browser (port 8080); gRPC between services (port 9090, internal only, contracts in `proto/` via buf). gRPC starts in Milestone 2.
 - Images: `linux/amd64` for AWS. The Dockerfile cross-compiles with `--platform=$BUILDPLATFORM` and `GOARCH=$TARGETARCH`.
 - Terraform: pin module versions (`terraform-aws-modules/vpc ~> 6.7`, `eks ~> 21.29`), S3 backend with `use_lockfile`, short comments explaining *why*.
 - Keep teardown clean: no resources that survive `destroy` and collide on the next `apply` (e.g. no custom KMS key or control-plane log group).
